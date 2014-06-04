@@ -1,8 +1,14 @@
 ---
 # Defines tasks applicable across all machines in the infrastructure.
 
+- name: Update apt cache
+  apt: update_cache=yes
+
+- name: Upgrade all safe packages
+  apt: upgrade=safe
+
 - name: Install necessities and nice-to-haves
-  apt: pkg=$item state=installed
+  apt: pkg={{ item }} state=installed
   with_items:
     - sudo
     - vim
@@ -12,9 +18,6 @@
     - mosh
     - zsh
     - git
-    - encfs
-    - libfuse-dev
-    - fuse-utils
     - ruby1.9.3
     - screen
     - apache2
@@ -22,23 +25,35 @@
     - apticron
     - update-notifier-common
     - debian-goodies
+    - apt-transport-https
+    - python-software-properties
 
-- name: Install ntp
-  apt: pkg=ntp state=installed
+- name: Install unattended upgrades (Debian/Ubuntu only)
+  apt: pkg=unattended-upgrades state=installed
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
 
-- name: Configure ntp
-  template: src=ntp.conf.j2 dest=/etc/ntp.conf
-  notify:
-    - restart ntp
-
-- name: Ensure ntpd is running and enabled
-  service: name=ntp state=running enabled=yes
+- name: Apticron email configuration
+  template: src=apticron.conf.j2 dest=/etc/apticron/apticron.conf
 
 - name: Disable default Apache site
-  command: a2dissite default
+  command: a2dissite 000-default removes=/etc/apache2/sites-enabled/000-default
+  notify: restart apache
 
+- name: Enable Apache headers module
+  command: a2enmod headers creates=/etc/apache2/mods-enabled/headers.load
+  notify: restart apache
+
+- name: Set ServerName for Apache
+  template: src=fqdn.j2 dest=/etc/apache2/conf.d/fqdn
+  notify: restart apache
+
+- include: encfs.yml tags=encfs
 - include: users.yml tags=users
 - include: ssl.yml tags=ssl
-- include: ferm.yml tags=ferm
+- include: ufw.yml tags=ufw
 - include: security.yml tags=security
-- include: tarsnap.yml tags=tarsnap
+- include: ntp.yml tags=ntp
+- include: google_auth.yml tags=google_auth
+  when: ansible_distribution_release != 'trusty'
+- include: google_auth_mod.yml tags=google_auth
+  when: ansible_distribution_release == 'trusty'

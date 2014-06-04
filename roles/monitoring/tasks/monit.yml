@@ -5,11 +5,11 @@
   copy: src=etc_monit_monitrc dest=/etc/monit/monitrc
 
 - name: Copy monit service config files into place
-  copy: src=etc_monit_conf.d_${item} dest=/etc/monit/conf.d/${item}
+  copy: src=etc_monit_conf.d_{{ item }} dest=/etc/monit/conf.d/{{ item }}
   with_items:
     - apache2
+    - pgsql
     - dovecot
-    - mysql
     - postfix
     - sshd
     - tomcat

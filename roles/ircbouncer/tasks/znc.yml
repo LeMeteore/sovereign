@@ -1,7 +1,7 @@
 # more or less as per http://wiki.znc.in/Running_ZNC_as_a_system_daemon
 
 - name: Install znc dependencies
-  apt: pkg=$item state=installed
+  apt: pkg={{ item }} state=installed
   with_items:
     - build-essential
     - libssl-dev
@@ -17,13 +17,13 @@
     - libperl-dev
 
 - name: Download znc release
-  get_url: url=http://znc.in/releases/znc-${znc_version}.tar.gz dest=/root/znc-${znc_version}.tar.gz
+  get_url: url=http://znc.in/releases/archive/znc-{{ znc_version }}.tar.gz dest=/root/znc-{{ znc_version }}.tar.gz
 
 - name: Decompress znc source
-  command: tar xzf /root/znc-${znc_version}.tar.gz chdir=/root creates=/root/znc-${znc_version}/configure
+  command: tar xzf /root/znc-{{ znc_version }}.tar.gz chdir=/root creates=/root/znc-{{ znc_version }}/configure
 
 - name: Build and install znc
-  command: ./configure --enable-python ; make ; make install executable=/bin/bash chdir=/root/znc-${znc_version} creates=/usr/local/bin/znc
+  shell: ./configure --enable-python ; make ; make install executable=/bin/bash chdir=/root/znc-{{ znc_version }} creates=/usr/local/bin/znc
 
 - name: Create znc group
   group: name=znc state=present
@@ -34,14 +34,28 @@
 - name: Copy znc init file into place
   copy: src=etc_init.d_znc dest=/etc/init.d/znc mode=0755
 
-- name: Copy znc combined SSL cert into place
-  copy: src=etc_ssl_znc-combined.pem dest=/etc/ssl/znc-combined.pem owner=znc group=znc
+- name: Create a combined version of the private key with public cert and intermediate + root CAs
+  shell: cat /etc/ssl/private/wildcard_private.key /etc/ssl/certs/wildcard_combined.pem >
+    /var/lib/znc/znc.pem creates=/var/lib/znc/znc.pem
 
-# NOTE: you should probably just generate this using the directions above and then edit via the web panel
-#- name: Copy znc configuration file into place
-#  template: src=var_lib_znc_configs_znc.conf.j2 dest=/var/lib/znc/configs/znc.conf owner=znc group=znc
+- name: Ensure znc user and group can read cert
+  file: path=/var/lib/znc/znc.pem group=znc owner=znc mode=640
+
+- name: Check for existing config file
+  command: cat /var/lib/znc/configs/znc.conf
+  register: znc_config
+  ignore_errors: True
+  changed_when: False  # never report as "changed"
+
+- name: Create znc config directory
+  file: state=directory path=/var/lib/znc/configs group=znc owner=znc
+
+- name: Copy znc configuration file into place
+  template: src=var_lib_znc_configs_znc.conf.j2 dest=/var/lib/znc/configs/znc.conf owner=znc group=znc
+  when: znc_config.rc != 0
+
+- name: Set firewall rule for znc
+  ufw: rule=allow port=6697 proto=tcp
 
 - name: Ensure znc is a system service
-  command: update-rc.d znc defaults
-  notify: restart znc
-
+  service: name=znc state=started enabled=true

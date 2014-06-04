@@ -1,26 +1,27 @@
-NameVirtualHost *:80
-
 <VirtualHost *:80>
-    ServerName {{ blog_domain }}
-    ServerAlias www.{{ blog_domain }}
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }}
 
-    Redirect / https://{{ blog_domain }}/
+    Redirect permanent / https://{{ domain }}/
 </VirtualHost>
 
-NameVirtualHost *:443
 
 <VirtualHost *:443>
-    ServerName {{ blog_domain }}
-    ServerAlias www.{{ blog_domain }}
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }}
 
     SSLEngine on
-    SSLCipherSuite ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP
-
+    SSLProtocol ALL -SSLv2
+    SSLHonorCipherOrder On
+    SSLCipherSuite ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+3DES:DH+3DES:RSA+AES:RSA+3DES:!ADH:!AECDH:!MD5:!DSS
     SSLCertificateFile      /etc/ssl/certs/wildcard_public_cert.crt
     SSLCertificateKeyFile   /etc/ssl/private/wildcard_private.key
     SSLCACertificateFile    /etc/ssl/certs/wildcard_ca.pem
+    Header add Strict-Transport-Security "max-age=15768000; includeSubdomains"
 
-    DocumentRoot            "/var/www/{{ blog_domain }}"
+    DocumentRoot            "/var/www/{{ domain }}"
     DirectoryIndex          index.html
+    Options                 -Indexes
+
     HostnameLookups         Off
 </VirtualHost>
