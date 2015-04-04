@@ -5,8 +5,8 @@
 - name: Install ufw
   apt: pkg=ufw state=present
 
-- name: Deny everything and enable UFW
-  ufw: state=enabled policy=deny
+- name: Deny everything
+  ufw: policy=deny
 
 - name: Set firewall rule for DNS
   ufw: rule=allow port=domain
@@ -17,9 +17,12 @@
 - name: Set firewall rules for web traffic and SSH
   ufw: rule=allow port={{ item }} proto=tcp
   with_items:
-    - ssh
     - http
     - https
+    - ssh
+
+- name: Enable UFW
+  ufw: state=enabled
 
 - name: Check config of ufw
   command: cat /etc/ufw/ufw.conf

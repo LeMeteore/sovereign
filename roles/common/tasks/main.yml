@@ -1,5 +1,8 @@
 ---
 # Defines tasks applicable across all machines in the infrastructure.
+- name: Set up closest mirror autoselect (ubuntu-only)
+  template: src=apt_sources.list.j2 dest=/etc/apt/sources.list
+  when: ansible_distribution == 'Ubuntu'
 
 - name: Update apt cache
   apt: update_cache=yes
@@ -10,23 +13,33 @@
 - name: Install necessities and nice-to-haves
   apt: pkg={{ item }} state=installed
   with_items:
-    - sudo
-    - vim
+    - apache2
+    - apt-transport-https
+    - apticron
+    - build-essential
+    - debian-goodies
+    - git
     - htop
     - iftop
     - iotop
     - mosh
-    - zsh
-    - git
+    - python-software-properties
     - ruby1.9.3
     - screen
-    - apache2
-    - build-essential
-    - apticron
+    - sudo
     - update-notifier-common
-    - debian-goodies
-    - apt-transport-https
-    - python-software-properties
+    - vim
+    - zsh
+
+- name: Set timezone to UTC
+  action: shell echo Etc/UTC > /etc/timezone
+
+- name: Set localtime to UTC
+  file: src=/usr/share/zoneinfo/Etc/UTC dest=/etc/localtime
+
+- name: Reconfigure tzdata
+  action: command dpkg-reconfigure -f noninteractive tzdata
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
 
 - name: Install unattended upgrades (Debian/Ubuntu only)
   apt: pkg=unattended-upgrades state=installed
@@ -46,6 +59,22 @@
 - name: Set ServerName for Apache
   template: src=fqdn.j2 dest=/etc/apache2/conf.d/fqdn
   notify: restart apache
+  when: ansible_distribution_release != 'trusty'
+
+- name: Create ServerName configuration file for Apache for Ubuntu Trusty
+  template: src=fqdn.j2 dest=/etc/apache2/conf-available/fqdn.conf
+  when: ansible_distribution_release == 'trusty'
+
+- name: Set ServerName for Apache for Ubuntu Trusty
+  command: a2enconf fqdn creates=/etc/apache2/conf-enabled/fqdn.conf
+  notify: restart apache
+  when: ansible_distribution_release == 'trusty'
+
+- name: Create decrypted directory (even if encfs isn't used)
+  file: state=directory path=/decrypted
+
+- name: Set decrypted directory permissions
+  file: state=directory path=/decrypted group=mail mode=775
 
 - include: encfs.yml tags=encfs
 - include: users.yml tags=users
